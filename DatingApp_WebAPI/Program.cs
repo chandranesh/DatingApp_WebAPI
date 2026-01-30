@@ -1,5 +1,10 @@
+using System.Text;
 using DatingApp_WebAPI.Data;
+using DatingApp_WebAPI.Interfaces;
+using DatingApp_WebAPI.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,12 +21,27 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddCors();
 
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        var tokenKey = builder.Configuration["TokenKey"]
+                       ?? throw new Exception("TokenKey Not Found - program.cs");
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey)),
+            ValidateIssuer = false,
+            ValidateAudience = false
+        };
+    });
+
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 app.UseCors(x => x.AllowAnyHeader().AllowAnyMethod()
     .WithOrigins("https://localhost:4200", "http://localhost:4200"));
-
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -29,6 +49,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
